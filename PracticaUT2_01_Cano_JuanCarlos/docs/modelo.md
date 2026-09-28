@@ -71,3 +71,20 @@ Al menos una decisión de incrustación y una de referencia, justificando tamañ
 La estrategia para identificadores, fechas, estados y campos opcionales.
 
 Los límites del modelo: tamaño máximo del documento, crecimiento de arrays, duplicación, consistencia y operaciones que resultarían incómodas.
+
+###  Patrones de acceso (Lecturas vs. Escrituras)
+
+**Datos leídos con mayor frecuencia (90%):** El catálogo completo. Las vistas de listados por categoría y la carga de la ficha de detalle de los productos (que debe cargar rápido y traer las variantes y las mejores reseñas de un solo golpe).
+
+**Datos escritos con mayor frecuencia (10%):** Actualización de la cantidad de stock disponible (operación crítica que ocurre en cada compra). Inserción de nuevas reseñas de usuarios.
+
+###  Tabla de Accesos y Consultas
+
+| Pregunta | Colección | Filtros (Query) | Ordenación (Sort) | Paginación / Límite |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Productos por categoría** | `products` | `category_path: /^,tech,laptops,/`, `status: "activo"` | `base_price: 1` (Ascendente) | `skip: (page-1)*20`, `limit: 20` |
+| **2. Detalle y top reseñas** | `products` | `_id: <product_id>` | N/A | `limit: 1` |
+| **3. Alertas de stock bajo** | `products` | `variants.stock: { $lt: 5 }` | `base_price: -1` (Descendente) | Normal (ej. 50 por pág.) |
+| **4. Valoración media** | `products` | `_id: <product_id>` | N/A | Sin paginación |
+| **5. Búsqueda por atributos** | `products` | `attributes.k: "RAM"`, `attributes.v: "32GB"` | `base_price: 1` (Ascendente) | `skip: 0`, `limit: 20` |
+| **6. Reseñas negativas** | `reviews` | `product_id: <id>`, `rating: { $lte: 2 }` | `createdAt: -1` (Descendente) | `skip: 0`, `limit: 10` |s
