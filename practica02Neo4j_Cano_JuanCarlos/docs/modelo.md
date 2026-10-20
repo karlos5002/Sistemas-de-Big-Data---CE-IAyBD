@@ -8,7 +8,7 @@ El escenario elegido es una **Red de rutas deportivas y senderismo** (estilo Str
 **Actores principales:**
 *   **Deportista/Senderista:** Explora el mapa, busca rutas circulares, planifica ascensos a cimas evaluando el esfuerzo y la disponibilidad de fuentes de agua.
 *   **Servicios de Rescate (Emergencias):** En caso de accidente, necesitan consultar de forma crítica la vía de evacuación más rápida o el punto de acceso para vehículos más cercano.
-*   **Mantenimiento (Administradores):** Registran nuevos tramos, actualizan el estado de los caminos (ej. cierres por desprendimientos) y añaden puntos de interés.
+*   **Mantenimiento (Administradores):** Registran nuevos tramos, actualizan el estado de los caminos  y añaden puntos de interés.
 
 ### 1.2. Preguntas de negocio a resolver por el grafo
 Nuestra base de datos en Neo4j debe ser capaz de responder en milisegundos a las siguientes consultas:
@@ -27,4 +27,4 @@ Nuestra base de datos en Neo4j debe ser capaz de responder en milisegundos a las
 *   **Disponibilidad:** Debe ser **Alta (HA)**. Los servicios de rescate y los montañeros dependen del sistema en ruta; una caída del sistema puede tener consecuencias físicas críticas.
 *   **Seguridad y Roles:** Se requiere un control de acceso estricto basado en roles (RBAC). Los usuarios finales solo tienen permisos de lectura (`READ`), mientras que solo administradores verificados pueden ejecutar inserciones o modificaciones (`WRITE`).
 *   **Privacidad (RGPD):** Este modelo central documenta la red física. Si posteriormente se acopla el rastreo GPS en vivo de los usuarios para recomendaciones, esos nodos de sesión deberán anonimizarse rigurosamente para evitar la exposición de patrones de vida privados.
-*   **Crecimiento:** La red crecerá de forma orgánica incorporando nuevas regiones geográficas. El principal riesgo de modelado a evitar son los *supernodos* (por ejemplo, evitar crear un único nodo "España" al que se conecten todos los millones de tramos del país).
+*   **Crecimiento:** La red crecerá de forma orgánica incorporando nuevas regiones geográficas. El principal riesgo de modelado a evitar son los *supernodos*.
