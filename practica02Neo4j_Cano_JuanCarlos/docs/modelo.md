@@ -1,30 +1,57 @@
-# Práctica 02: Modelo de Grafos - Red de Rutas de Senderismo
+# Práctica 02: Modelado de Grafos - Red de Rutas de Senderismo
 
-## 1. Definición del problema y los actores
+## 1. Definir el Problema y los Accesos
 
-### 1.1. Escenario y contexto
-El escenario elegido es una **Red de rutas deportivas y senderismo** (estilo Strava o Wikiloc). La base de datos no solo almacena puntos aislados, sino la topología exacta del terreno: cómo se conectan los puntos de interés (cimas, fuentes, refugios y cruces) a través de tramos físicos de camino. 
+### 1.1 Escenario Elegido y Usuarios (Caso Wikiloc / Strava)
+*   **Escenario:** Plataforma de rutas deportivas y senderismo que almacena la topología exacta del terreno (caminos, refugios, fuentes, cimas) y la actividad de los usuarios que exploran y guardan rutas.
+*   **Usuarios y sistemas que interactúan:**
+    *   **Senderista:** Explora el mapa, guarda rutas para hacerlas el fin de semana y registra qué caminos ha completado.
+    *   **Administrador:** Da de alta nuevos tramos, actualiza el estado de los caminos (ej. cierres por nieve) y añade puntos de interés (fuentes, refugios).
+    *   **Servicios de Rescate:** En caso de accidente, consultan la vía de evacuación más rápida o el acceso para vehículos más cercano calculando saltos en el grafo.
 
-**Actores principales:**
-*   **Deportista/Senderista:** Explora el mapa, busca rutas circulares, planifica ascensos a cimas evaluando el esfuerzo y la disponibilidad de fuentes de agua.
-*   **Servicios de Rescate (Emergencias):** En caso de accidente, necesitan consultar de forma crítica la vía de evacuación más rápida o el punto de acceso para vehículos más cercano.
-*   **Mantenimiento (Administradores):** Registran nuevos tramos, actualizan el estado de los caminos  y añaden puntos de interés.
+### 1.2 Seis Preguntas de Negocio que la Base de Datos Debe Responder
+1.  ¿A qué puntos (destinos) puedo ir directamente desde un punto de inicio concreto (ej. Parking Base) y qué dificultad tienen los tramos?
+2.  ¿Qué refugios son accesibles a un máximo de 2 saltos desde un punto de inicio para planificar pernoctas?
+3.  ¿Cómo puedo llegar de un collado a una fuente si el camino directo está cortado, garantizando que todos los tramos de la alternativa estén "Abiertos"?
+4.  En caso de emergencia en la cima, ¿cuál es el camino más corto de evacuación (shortestPath) hacia el parking base?
+5.  ¿Cómo el equipo de mantenimiento puede reabrir un tramo cerrado y registrar transaccionalmente la fecha de revisión?
+6.  Cuando un usuario completa una ruta que ya había hecho antes, ¿cómo se incrementa su contador de veces completadas usando parámetros y la cláusula ON MATCH?
 
-### 1.2. Preguntas de negocio a resolver por el grafo
-Nuestra base de datos en Neo4j debe ser capaz de responder en milisegundos a las siguientes consultas:
-1.  **Ruta óptima:** ¿Cuál es el camino más corto (en distancia o tiempo) entre un punto de inicio y un refugio concreto?
-2.  **Planificación segura:** ¿Qué cimas son accesibles desde un refugio pasando *únicamente* por tramos clasificados con dificultad "Fácil" o "Media"?
-3.  **Supervivencia:** Dado un punto en la montaña, ¿dónde está la fuente de agua potable más cercana (a menor número de saltos/tramos)?
-4.  **Alternativas de rescate:** Si el tramo principal está cortado por nieve, ¿cuál es el siguiente camino más corto para llegar al destino?
-5.  **Rutas circulares:** ¿Qué trayectos empiezan y terminan en el mismo aparcamiento cruzando al menos 3 puntos de interés distintos?
-6.  **Análisis de cuellos de botella:** ¿Qué puntos de cruce (nodos) son paso obligatorio para conectar la cara norte y la cara sur de la montaña?
+### 1.3 Datos con Mayor Frecuencia de Lectura y Escritura
+*   **Lecturas masivas en caliente:**
+    *   Cálculo de rutas óptimas (Shortest Path) por parte de los senderistas en tiempo real desde la app móvil.
+    *   Consultas de exploración del mapa .
+*   **Escrituras y actualizaciones:**
+    *   Usuarios guardando o completando rutas al terminar su jornada.
+    *   Guardas forestales actualizando el estado de un camino tras un desprendimiento.
 
-### 1.3. Patrones de Lectura y Escritura
-*   **Lecturas masivas (Tiempo real):** El 95% del tráfico son lecturas complejas. Los senderistas consultan constantemente el mapa buscando caminos (`shortestPath`), filtrando tramos por dificultad y calculando distancias sobre la marcha.
-*   **Escrituras puntuales (Batch/Manual):** La orografía no cambia todos los días. Las escrituras representan el 5% de las operaciones: un administrador que registra un nuevo sendero, la creación de un nuevo refugio o el cambio de estado de un camino temporalmente cortado.
+### 1.4 Requisitos de Seguridad, Privacidad, Disponibilidad y Crecimiento
+*   **Seguridad:** Conexiones cifradas. Separación de roles: la API de la app móvil solo tiene permisos de lectura, mientras que los guardas forestales tienen rol de edición.
+*   **Privacidad:** Los datos personales reales de los usuarios están protegidos. El historial de rutas completadas se anonimiza en caso de baja del usuario, preservando la topología de la montaña.
+*   **Disponibilidad:** Clúster de Neo4j en alta disponibilidad para asegurar que los servicios de rescate siempre tengan acceso al mapa topológico, incluso si cae un nodo servidor.
+*   **Crecimiento escalable:** Prevención de supernodos. No se crea un nodo genérico "España" al que se conecten todos los tramos, ya que ralentizaría las búsquedas topológicas.
 
-### 1.4. Seguridad, Disponibilidad y Crecimiento
-*   **Disponibilidad:** Debe ser **Alta (HA)**. Los servicios de rescate y los montañeros dependen del sistema en ruta; una caída del sistema puede tener consecuencias físicas críticas.
-*   **Seguridad y Roles:** Se requiere un control de acceso estricto basado en roles (RBAC). Los usuarios finales solo tienen permisos de lectura (`READ`), mientras que solo administradores verificados pueden ejecutar inserciones o modificaciones (`WRITE`).
-*   **Privacidad (RGPD):** Este modelo central documenta la red física. Si posteriormente se acopla el rastreo GPS en vivo de los usuarios para recomendaciones, esos nodos de sesión deberán anonimizarse rigurosamente para evitar la exposición de patrones de vida privados.
-*   **Crecimiento:** La red crecerá de forma orgánica incorporando nuevas regiones geográficas. El principal riesgo de modelado a evitar son los *supernodos*.
+---
+
+## 2. Diseñar el Grafo de Nodos y Relaciones
+
+### 2.1 Etiquetas de Nodos y Tipos de Relaciones
+**1. Etiquetas de Nodos:**
+*   :Usuario: Cuentas de deportistas (id, nombre, nivel_experiencia).
+*   :Punto: Lugar físico del terreno (id, nombre, elevacion).
+*   :Refugio: Punto donde pernoctar (id, nombre, plazas, elevacion).
+*   :Fuente: Punto de agua potable (id, nombre, potable).
+*   :RutaGuardada: Colección de tramos guardada (id, titulo, publica).
+
+**2. Tipos de Relaciones:**
+*   (:Punto)-[:TRAMO_HACIA {distancia_km: 3.0, desnivel_m: 600, dificultad: "Media", estado: "Abierto"}]->(:Punto)
+*   (:Usuario)-[:HA_COMPLETADO {veces_completada: 1, ultima_vez: date()}]->(:RutaGuardada)
+*   (:RutaGuardada)-[:INCLUYE_TRAMO {orden: 1}]->(:Punto)
+
+### 2.2 Nodos y Relaciones de Ejemplo en Cypher
+```cypher
+CREATE (p1:Punto {id: "PUN-01", nombre: "Parking Base", elevacion: 1200})
+CREATE (p2:Punto {id: "PUN-02", nombre: "Collado Este", elevacion: 1800})
+CREATE (r1:Refugio {id: "REF-01", nombre: "Alto Campoo", plazas: 40})
+CREATE (p1)-[:TRAMO_HACIA {distancia_km: 3.0, dificultad: "Media", estado: "Abierto"}]->(p2)
+CREATE (p2)-[:TRAMO_HACIA {distancia_km: 1.5, dificultad: "Facil", estado: "Abierto"}]->(r1);
